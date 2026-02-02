@@ -1,11 +1,17 @@
 /**
  * @file pins.h
- * @brief JEDYNE ŹRÓDŁO PRAWDY o pinach GPIO - Trassar-Painter v6.0.0
+ * @brief JEDYNE ŹRÓDŁO PRAWDY o pinach GPIO - Trassar-Painter v7.0.0
  *
  * ═══════════════════════════════════════════════════════════════════
  * WSZYSTKIE PRZYPISANIA PINÓW GPIO ESP32-S3 SĄ ZDEFINIOWANE TUTAJ
  * Żaden inny plik NIE MOŻE definiować pinów GPIO!
  * ═══════════════════════════════════════════════════════════════════
+ *
+ * ZMIANY v7.0.0:
+ * - RELAY_4 przeniesiony z GPIO 45 (strapping!) na GPIO 19
+ * - BTN_PAUSE usunięty - jeden przycisk START/PAUZA na GPIO 40
+ * - Dodany SD_CS_PIN na GPIO 2 (karta SD zintegrowana z TFT)
+ * - RELAY_PINS/RELAY_COUNT: extern const (definicja w pins.cpp)
  *
  * Platforma: ESP32-S3 DevKitC-1 (16MB Flash, 8MB PSRAM)
  * @author Trassar251
@@ -22,28 +28,28 @@
 #define RELAY_1     21  // P1 (12cm) - oś jezdni
 #define RELAY_2     47  // P2 (12cm) - oś jezdni
 #define RELAY_3     48  // P3 (12cm) - oś jezdni
-#define RELAY_4     45  // P4 (24cm) - oś jezdni szeroki
+#define RELAY_4     19  // P4 (24cm) - PRZENIESIONY z GPIO 45 (strapping pin!)
 #define RELAY_5     38  // P5 (12cm) - krawędziowy
 #define RELAY_6     39  // P6 (24cm) - krawędziowy szeroki
 
-// Tablica pinów przekaźników - UŻYWAJ ZAWSZE ZAMIAST RELAY_1+i !!!
-// Rozwiązuje krytyczny bug z v5.3.0 (E-STOP wyłączał złe piny)
-static const int RELAY_PINS[6] = {RELAY_1, RELAY_2, RELAY_3, RELAY_4, RELAY_5, RELAY_6};
-static const int RELAY_COUNT = 6;
+// Tablica pinów przekaźników - definicja w pins.cpp
+// UŻYWAJ ZAWSZE ZAMIAST RELAY_1+i !!!
+extern const int RELAY_PINS[6];
+extern const int RELAY_COUNT;
 
 // ============================================================================
 // PRZYCISKI STERUJĄCE
 // ============================================================================
+// v7.0.0: JEDEN przycisk START/PAUZA zamiast osobnych START + PAUSE
 // Aktywne LOW z wewnętrznym PULLUP
-#define BTN_START   40  // START malowania/pomiaru
-#define BTN_STOP    41  // STOP
-#define BTN_PAUSE   19  // PAUSE/RESUME
+#define BTN_START_PAUSE  40  // START / PAUZA (jeden przycisk!)
+#define BTN_STOP         41  // STOP
 
 // ============================================================================
 // SYSTEM BEZPIECZEŃSTWA (SAFETY)
 // ============================================================================
-#define BTN_EMERGENCY_STOP  42  // E-STOP - czerwony przycisk awaryjny (aktywny LOW)
-#define BUZZER_PIN          46  // Buzzer - alerty dźwiękowe
+#define BTN_EMERGENCY_STOP  42  // E-STOP - przycisk awaryjny NC (Normally Closed)
+#define BUZZER_PIN          46  // Buzzer - alerty dźwiękowe (strapping, OK po boot)
 #define LED_STATUS_GREEN    35  // LED zielony - system OK
 #define LED_STATUS_RED      36  // LED czerwony - błąd/emergency
 #define LED_STATUS_YELLOW   37  // LED żółty - ostrzeżenie
@@ -51,8 +57,6 @@ static const int RELAY_COUNT = 6;
 // ============================================================================
 // SELEKTOR P3 (przełącznik fizyczny)
 // ============================================================================
-// LOW = normalne przypisanie pistoletów
-// HIGH = odwrócone (zamiana P1 <-> P3)
 #define SEL_P3      20
 
 // ============================================================================
@@ -76,17 +80,19 @@ static const int RELAY_COUNT = 6;
 #define RTC_SCL     18  // I2C Clock
 
 // ============================================================================
+// KARTA SD (zintegrowana z wyświetlaczem TFT) - NOWE v7.0.0
+// ============================================================================
+#define SD_CS_PIN   2   // Chip Select karty SD
+
+// ============================================================================
 // TFT ILI9341 - piny zdefiniowane w platformio.ini build_flags
 // ============================================================================
-// MOSI = 11 (SPI)
-// MISO = 13 (SPI)
-// SCK  = 12 (SPI Clock)
-// CS   = 14 (Chip Select)
+// MOSI = 11 (SPI - współdzielone z SD)
+// MISO = 13 (SPI - współdzielone z SD)
+// SCK  = 12 (SPI Clock - współdzielone z SD)
+// CS   = 14 (Chip Select TFT)
 // DC   = 15 (Data/Command)
 // RST  = 16 (Reset)
 // LED  = 17 (Podświetlenie)
-//
-// UWAGA: Te piny są konfigurowane przez -D flagi w platformio.ini
-// i nie powinny być zmieniane tutaj!
 
 #endif // PINS_H

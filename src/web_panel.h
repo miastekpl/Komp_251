@@ -1,6 +1,8 @@
 /**
  * @file web_panel.h
- * @brief Panel WWW i REST API - Trassar-Painter v6.0.0
+ * @brief Panel WWW i REST API - Trassar-Painter v7.0.0
+ *
+ * v7.0.0: Basic Auth, CORS, delete reports, SD card info
  *
  * @author Trassar251
  * @date 2026-02-02

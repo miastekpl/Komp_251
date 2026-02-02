@@ -1,7 +1,6 @@
 /**
  * @file buzzer_leds.h
- * @brief Buzzer i LEDy statusu - Trassar-Painter v6.0.0
- *
+ * @brief Buzzer i LEDy statusu - Trassar-Painter v7.0.0
  * @author Trassar251
  * @date 2026-02-02
  */

@@ -1,6 +1,8 @@
 /**
  * @file buzzer_leds.cpp
- * @brief Implementacja buzzer i LED - Trassar-Painter v6.0.0
+ * @brief Implementacja buzzer i LED - Trassar-Painter v7.0.0
+ *
+ * v7.0.0: Poprawiona logika buzzerUpdate() - czysty licznik cykli
  *
  * @author Trassar251
  * @date 2026-02-02
@@ -13,7 +15,7 @@
 #include "state.h"
 
 // ============================================================================
-// BUZZER
+// BUZZER (v7.0.0: poprawiona logika)
 // ============================================================================
 
 void buzzerBeep(int beeps) {
@@ -29,19 +31,23 @@ void buzzerUpdate() {
     }
 
     unsigned long elapsed = millis() - buzzerStartTime;
-    int beepCycle = (elapsed / BUZZER_CYCLE_MS) % 2;
+    unsigned long fullCycleMs = BUZZER_CYCLE_MS * 2;  // on + off
 
-    if (beepCycle == 0 && buzzerBeepCount > 0) {
-        digitalWrite(BUZZER_PIN, HIGH);
-    } else {
+    // Numer bieżącego beep-a (0-indexed)
+    int currentBeep = elapsed / fullCycleMs;
+
+    // Czy wszystkie beepy wykonane?
+    if (currentBeep >= buzzerBeepCount) {
+        buzzerActive = false;
         digitalWrite(BUZZER_PIN, LOW);
-        if (beepCycle == 1) {
-            buzzerBeepCount--;
-            if (buzzerBeepCount <= 0) {
-                buzzerActive = false;
-            }
-        }
+        return;
     }
+
+    // Pozycja w bieżącym cyklu
+    unsigned long posInCycle = elapsed % fullCycleMs;
+    bool on = (posInCycle < (unsigned long)BUZZER_CYCLE_MS);
+
+    digitalWrite(BUZZER_PIN, on ? HIGH : LOW);
 }
 
 // ============================================================================

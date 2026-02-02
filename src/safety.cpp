@@ -1,10 +1,11 @@
 /**
  * @file safety.cpp
- * @brief Implementacja systemu bezpieczeństwa - Trassar-Painter v6.0.0
+ * @brief Implementacja systemu bezpieczeństwa - Trassar-Painter v7.0.0
  *
- * NAPRAWIONE w v6.0.0:
- * - activateEmergencyStop() używa RELAY_PINS[] zamiast RELAY_1+i
- * - checkHeartbeat() używa RELAY_PINS[] do wyłączenia pistoletów
+ * ZMIANY v7.0.0:
+ * - E-STOP: poprawiona logika NC (normalny stan = LOW)
+ * - Deadman: dedykowany ERR_DEADMAN_TIMEOUT
+ * - Self-test: sprawdzenie karty SD
  *
  * @author Trassar251
  * @date 2026-02-02
@@ -21,10 +22,7 @@
 #include "patterns.h"
 #include "buzzer_leds.h"
 
-// Zewnętrzne obiekty (z main.cpp)
 extern RTC_DS1307 rtc;
-
-// Forward declarations z innych modułów
 extern void updateGuns();
 extern void pauseSystem();
 extern bool stopReport();
@@ -46,11 +44,9 @@ void logError(ErrorType type, const char* message) {
     strncpy(err.message, message, sizeof(err.message) - 1);
     err.message[sizeof(err.message) - 1] = '\0';
 
-    // Circular buffer
     errorLogIndex = (errorLogIndex + 1) % ERROR_LOG_SIZE;
     errorCount++;
 
-    // Zapisz do pliku
     File errorFile = LittleFS.open(ERROR_LOG_FILE, "a");
     if (errorFile) {
         errorFile.printf("[%s] ERROR %d: %s\n", err.timestamp, type, message);
@@ -71,38 +67,30 @@ void activateEmergencyStop() {
     emergencyStopReleased = false;
     currentMode = MODE_EMERGENCY;
 
-    // NAPRAWIONE v6.0.0: Używamy tablicy RELAY_PINS[] zamiast RELAY_1+i
-    // Bug w v5.3.0: setRelay(RELAY_1 + i) dawał piny 21,22,23,24,25,26
-    // Prawdziwe piny to: 21,47,48,45,38,39
     for (int i = 0; i < RELAY_COUNT; i++) {
         gunsActive[i] = false;
         digitalWrite(RELAY_PINS[i], LOW);
     }
 
-    // Zapisz raport jeśli aktywny
     if (reportActive) {
         stopReport();
     }
 
-    // Alarm dźwiękowy - 5 krótkich sygnałów
     buzzerBeep(5);
-
-    // LED - czerwony ciągły
     setStatusLed(false, true, false);
-
     logError(ERR_ESTOP_PRESSED, "EMERGENCY STOP PRESSED!");
 
     Serial.println("\n[E-STOP] EMERGENCY STOP AKTYWNY!");
     Serial.println("[E-STOP] Wszystkie pistolety WYLACZONE");
-    Serial.println("[E-STOP] Zwolnij E-STOP i wcisnij START aby zresetowac");
 }
 
 void resetEmergencyStop() {
     if (!emergencyStopActive) return;
 
-    // Sprawdź czy przycisk E-STOP jest zwolniony
-    if (digitalRead(BTN_EMERGENCY_STOP) == LOW) {
-        Serial.println("[E-STOP] Zwolnij przycisk E-STOP aby zresetowac!");
+    // v7.0.0: E-STOP NC - zwolniony = pin LOW (obwód NC zamknięty = GND)
+    // Wciśnięty = pin HIGH (obwód NC otwarty = PULLUP)
+    if (digitalRead(BTN_EMERGENCY_STOP) == HIGH) {
+        Serial.println("[E-STOP] Przycisk wciaz wcisniety! Zwolnij aby zresetowac.");
         buzzerBeep(2);
         return;
     }
@@ -113,8 +101,7 @@ void resetEmergencyStop() {
 
     setStatusLed(true, false, false);
     buzzerBeep(1);
-
-    Serial.println("[E-STOP] ZRESETOWANY - system gotowy do pracy");
+    Serial.println("[E-STOP] ZRESETOWANY - system gotowy");
 }
 
 // ============================================================================
@@ -122,23 +109,20 @@ void resetEmergencyStop() {
 // ============================================================================
 
 void resetWatchdog() {
-    if (watchdogEnabled) {
-        lastWatchdogReset = millis();
-    }
+    if (watchdogEnabled) lastWatchdogReset = millis();
 }
 
 bool checkWatchdog() {
     if (!watchdogEnabled) return true;
-
     if (millis() - lastWatchdogReset > WATCHDOG_TIMEOUT_MS) {
-        logError(ERR_WATCHDOG_TIMEOUT, "Watchdog timeout - system nie odpowiada");
+        logError(ERR_WATCHDOG_TIMEOUT, "Watchdog timeout");
         return false;
     }
     return true;
 }
 
 // ============================================================================
-// HEARTBEAT (FAIL-SAFE)
+// HEARTBEAT
 // ============================================================================
 
 void updateHeartbeat() {
@@ -148,13 +132,10 @@ void updateHeartbeat() {
 bool checkHeartbeat() {
     if (millis() - lastHeartbeat > HEARTBEAT_INTERVAL_MS * 2) {
         logError(ERR_HEARTBEAT_TIMEOUT, "Heartbeat timeout - fail-safe aktywny");
-
-        // NAPRAWIONE v6.0.0: Używamy RELAY_PINS[]
         for (int i = 0; i < RELAY_COUNT; i++) {
             gunsActive[i] = false;
             digitalWrite(RELAY_PINS[i], LOW);
         }
-
         return false;
     }
     return true;
@@ -170,18 +151,11 @@ void confirmDeadman() {
 
 bool checkDeadman() {
     if (!deadmanActive) return true;
-
     if (millis() - lastDeadmanConfirm > DEADMAN_TIMEOUT_MS) {
-        logError(ERR_HEARTBEAT_TIMEOUT, "Deadman switch timeout - operator nie potwierdzil");
-
-        if (currentMode == MODE_WORKING) {
-            pauseSystem();
-        }
-
+        logError(ERR_DEADMAN_TIMEOUT, "Deadman switch timeout - operator nie potwierdzil");
+        if (currentMode == MODE_WORKING) pauseSystem();
         buzzerBeep(3);
         setStatusLed(false, false, true);
-
-        Serial.println("[DEADMAN] Timeout - potwierdzenie wymagane!");
         return false;
     }
     return true;
@@ -193,31 +167,24 @@ bool checkDeadman() {
 
 bool checkEncoderHealth() {
     if (currentMode != MODE_WORKING && currentMode != MODE_MEASURING &&
-        currentMode != MODE_CALIBRATING) {
-        return true;
-    }
+        currentMode != MODE_CALIBRATING) return true;
 
     bool healthy = true;
 
-    // Sprawdź czy są impulsy
     if (encoderPulses == lastEncoderPulses) {
-        unsigned long elapsed = millis() - lastEncoderChange;
-        if (elapsed > ENCODER_STALL_TIMEOUT_MS) {
-            if (currentSpeed < 0.5f) {
-                logError(ERR_ENCODER_STALL, "Enkoder zatrzymany - maszyna stoi?");
-                setStatusLed(false, false, true);
-                healthy = false;
-            }
+        if (millis() - lastEncoderChange > ENCODER_STALL_TIMEOUT_MS && currentSpeed < 0.5f) {
+            logError(ERR_ENCODER_STALL, "Enkoder zatrzymany");
+            setStatusLed(false, false, true);
+            healthy = false;
         }
     } else {
         lastEncoderPulses = encoderPulses;
         lastEncoderChange = millis();
     }
 
-    // Sprawdź odłączenie (0 impulsów po 10s pracy)
     if (currentMode == MODE_WORKING && encoderPulses == 0 &&
         millis() - workStartTime > ENCODER_DISCONNECT_MS) {
-        logError(ERR_ENCODER_DISCONNECTED, "Enkoder odlaczony - brak impulsow!");
+        logError(ERR_ENCODER_DISCONNECTED, "Enkoder odlaczony!");
         setStatusLed(false, true, false);
         buzzerBeep(5);
         healthy = false;
@@ -233,14 +200,9 @@ bool checkEncoderHealth() {
 bool validateSpeed() {
     if (currentSpeed < SPEED_MIN_KMH || currentSpeed > SPEED_MAX_KMH) {
         char msg[128];
-        snprintf(msg, sizeof(msg), "Predkosc nierealistyczna: %.1f km/h (limit: %.1f)",
-                 currentSpeed, SPEED_MAX_KMH);
+        snprintf(msg, sizeof(msg), "Predkosc nierealistyczna: %.1f km/h", currentSpeed);
         logError(ERR_SPEED_INVALID, msg);
-
-        if (currentMode == MODE_WORKING) {
-            pauseSystem();
-        }
-
+        if (currentMode == MODE_WORKING) pauseSystem();
         buzzerBeep(3);
         setStatusLed(false, false, true);
         return false;
@@ -255,17 +217,12 @@ bool validateSpeed() {
 bool checkCalibrationDrift() {
     float drift = abs(encoderCalibration - initialCalibration);
     float driftPercent = (drift / initialCalibration) * 100.0f;
-
     if (driftPercent > CALIBRATION_DRIFT_MAX_PERCENT) {
         char msg[128];
-        snprintf(msg, sizeof(msg), "Kalibracja dryftuje: %.1f%% (bylo: %.1f, jest: %.1f)",
-                 driftPercent, initialCalibration, encoderCalibration);
+        snprintf(msg, sizeof(msg), "Kalibracja dryftuje: %.1f%%", driftPercent);
         logError(ERR_CALIBRATION_DRIFT, msg);
-
         setStatusLed(false, false, true);
         buzzerBeep(2);
-
-        Serial.printf("[CALIB] Drift %.1f%% - rozwaz rekalibracje\n", driftPercent);
         return false;
     }
     return true;
@@ -277,104 +234,67 @@ bool checkCalibrationDrift() {
 
 bool performSelfTest() {
     Serial.println("\n[SELF-TEST] Diagnostyka startowa...");
-
     bool allPassed = true;
     char msg[256] = "Self-test:\n";
 
-    // Test 1: RTC
-    Serial.print("[SELF-TEST] RTC DS1307... ");
+    // RTC
     if (rtc.begin() && rtc.isrunning()) {
-        Serial.println("OK");
+        Serial.println("[SELF-TEST] RTC OK");
         strcat(msg, "RTC OK\n");
     } else {
-        Serial.println("FAILED");
+        Serial.println("[SELF-TEST] RTC FAILED");
         strcat(msg, "RTC FAILED\n");
         allPassed = false;
         logError(ERR_RTC_FAILED, "RTC nie dziala");
     }
 
-    // Test 2: LittleFS
-    Serial.print("[SELF-TEST] LittleFS... ");
-    size_t total = LittleFS.totalBytes();
-    size_t used = LittleFS.usedBytes();
-    size_t freeSpace = total - used;
+    // LittleFS
+    size_t freeSpace = LittleFS.totalBytes() - LittleFS.usedBytes();
     if (freeSpace > SELFTEST_MIN_FREE_KB * 1024) {
-        Serial.printf("OK (wolne: %u KB)\n", (unsigned)(freeSpace / 1024));
-        char buf[64];
-        snprintf(buf, sizeof(buf), "LittleFS OK (%u KB free)\n", (unsigned)(freeSpace / 1024));
-        strcat(msg, buf);
+        Serial.printf("[SELF-TEST] LittleFS OK (%u KB wolne)\n", (unsigned)(freeSpace / 1024));
     } else {
-        Serial.printf("WARNING (wolne: %u KB)\n", (unsigned)(freeSpace / 1024));
-        char buf[64];
-        snprintf(buf, sizeof(buf), "LittleFS LOW (%u KB)\n", (unsigned)(freeSpace / 1024));
-        strcat(msg, buf);
+        Serial.println("[SELF-TEST] LittleFS LOW");
         logError(ERR_FILESYSTEM_FULL, "LittleFS malo miejsca");
     }
 
-    // Test 3: Enkoder
-    Serial.print("[SELF-TEST] Enkoder... ");
-    int enc_clk = digitalRead(ENC_CLK);
-    int enc_dt = digitalRead(ENC_DT);
-    if (enc_clk == HIGH && enc_dt == HIGH) {
-        Serial.println("OK (pullup aktywny)");
-        strcat(msg, "Enkoder OK\n");
-    } else {
-        Serial.println("CHECK (sprawdz polaczenia)");
-        strcat(msg, "Enkoder CHECK\n");
-    }
+    // SD Card
+    Serial.printf("[SELF-TEST] SD Card: %s\n", sdCardAvailable ? "OK" : "BRAK");
 
-    // Test 4: Przekaźniki (krótki puls testowy)
-    Serial.print("[SELF-TEST] Przekazniki... ");
+    // Enkoder
+    Serial.printf("[SELF-TEST] Enkoder: CLK=%d DT=%d\n", digitalRead(ENC_CLK), digitalRead(ENC_DT));
+
+    // Przekaźniki
     for (int i = 0; i < RELAY_COUNT; i++) {
         digitalWrite(RELAY_PINS[i], HIGH);
         delay(50);
         digitalWrite(RELAY_PINS[i], LOW);
     }
-    Serial.println("OK (6 przekaznikow)");
-    strcat(msg, "Przekazniki OK\n");
+    Serial.println("[SELF-TEST] Przekazniki OK");
 
-    // Test 5: E-STOP
-    Serial.print("[SELF-TEST] E-STOP... ");
-    if (digitalRead(BTN_EMERGENCY_STOP) == HIGH) {
-        Serial.println("OK (zwolniony)");
-        strcat(msg, "E-STOP OK\n");
+    // E-STOP (NC: normalny = LOW)
+    if (digitalRead(BTN_EMERGENCY_STOP) == LOW) {
+        Serial.println("[SELF-TEST] E-STOP OK (zwolniony)");
     } else {
-        Serial.println("WCISNIETY!");
-        strcat(msg, "E-STOP PRESSED!\n");
+        Serial.println("[SELF-TEST] E-STOP WCISNIETY!");
         allPassed = false;
     }
 
-    // Test 6: Safety GPIO (LEDs + Buzzer)
-    Serial.print("[SELF-TEST] Safety GPIO... ");
-    digitalWrite(LED_STATUS_GREEN, HIGH);
-    delay(100);
-    digitalWrite(LED_STATUS_GREEN, LOW);
-    digitalWrite(LED_STATUS_YELLOW, HIGH);
-    delay(100);
-    digitalWrite(LED_STATUS_YELLOW, LOW);
-    digitalWrite(LED_STATUS_RED, HIGH);
-    delay(100);
-    digitalWrite(LED_STATUS_RED, LOW);
-    digitalWrite(BUZZER_PIN, HIGH);
-    delay(100);
-    digitalWrite(BUZZER_PIN, LOW);
-    Serial.println("OK (buzzer + LEDs)");
-    strcat(msg, "Safety GPIO OK\n");
+    // LEDs + Buzzer
+    digitalWrite(LED_STATUS_GREEN, HIGH); delay(100); digitalWrite(LED_STATUS_GREEN, LOW);
+    digitalWrite(LED_STATUS_YELLOW, HIGH); delay(100); digitalWrite(LED_STATUS_YELLOW, LOW);
+    digitalWrite(LED_STATUS_RED, HIGH); delay(100); digitalWrite(LED_STATUS_RED, LOW);
+    digitalWrite(BUZZER_PIN, HIGH); delay(100); digitalWrite(BUZZER_PIN, LOW);
 
-    // Podsumowanie
     if (allPassed) {
-        Serial.println("[SELF-TEST] PASSED - system gotowy");
         setStatusLed(true, false, false);
-        strcat(msg, "\nALL TESTS PASSED");
+        strcat(msg, "ALL PASSED");
     } else {
-        Serial.println("[SELF-TEST] WARNINGS - sprawdz ostrzezenia");
         setStatusLed(false, false, true);
-        strcat(msg, "\nSOME TESTS FAILED");
+        strcat(msg, "SOME FAILED");
         logError(ERR_SELF_TEST_FAILED, "Self-test wykryl problemy");
     }
 
     selfTestPassed = allPassed;
     strncpy(selfTestMessage, msg, sizeof(selfTestMessage) - 1);
-
     return allPassed;
 }

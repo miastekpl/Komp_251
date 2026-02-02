@@ -1,6 +1,6 @@
 # INSTRUKCJA OBSŁUGI
 
-## Trassar-Painter v6.0.0 - Komputer Malowarki Drogowej
+## Trassar-Painter v7.0.0 - Komputer Malowarki Drogowej
 
 ---
 
@@ -13,12 +13,14 @@
 5. [Panel WWW](#5-panel-www)
 6. [Kalibracja enkodera](#6-kalibracja-enkodera)
 7. [Raporty pracy](#7-raporty-pracy)
-8. [System bezpieczeństwa](#8-system-bezpieczenstwa)
-9. [Tryb serwisowy](#9-tryb-serwisowy)
-10. [Selektor P3](#10-selektor-p3)
-11. [Start od przerwy](#11-start-od-przerwy)
-12. [Aktualizacja OTA](#12-aktualizacja-ota)
-13. [Rozwiązywanie problemów](#13-rozwiazywanie-problemow)
+8. [Karta SD](#8-karta-sd)
+9. [System bezpieczeństwa](#9-system-bezpieczenstwa)
+10. [Kontrola prędkości](#10-kontrola-predkosci)
+11. [Tryb serwisowy](#11-tryb-serwisowy)
+12. [Selektor P3](#12-selektor-p3)
+13. [Start od przerwy](#13-start-od-przerwy)
+14. [Aktualizacja OTA](#14-aktualizacja-ota)
+15. [Rozwiązywanie problemów](#15-rozwiazywanie-problemow)
 
 ---
 
@@ -30,6 +32,8 @@ Trassar-Painter to profesjonalny komputer sterujący malowarką drogową. System
 - 15 wzorców malowania (P-1a do P-7d) zgodnych z normą
 - 6 kanałów pistoletów (12cm i 24cm)
 - Pomiar dystansu i prędkości (enkoder)
+- **Kontrola prędkości** - malowanie tylko powyżej 3 km/h
+- **Karta SD** - zapis raportów na kartę microSD
 - Automatyczna kalibracja (jedź 10m)
 - Panel WWW przez WiFi (telefon/tablet)
 - Raporty pracy z obliczaniem powierzchni m2
@@ -46,6 +50,7 @@ Trassar-Painter to profesjonalny komputer sterujący malowarką drogową. System
 2. System wykonuje **Self-test** (diagnostyka ~2s):
    - Test RTC DS1307
    - Test LittleFS (pamięć plików)
+   - Test karty SD (jeśli włożona)
    - Test enkodera
    - Test przekaźników (krótki puls na każdym)
    - Test E-STOP (czy zwolniony)
@@ -75,11 +80,11 @@ Trassar-Painter to profesjonalny komputer sterujący malowarką drogową. System
 | **CALIBRATING** | - | Kalibracja automatyczna |
 | **EMERGENCY** | Czerwony stały | E-STOP aktywny, wszystkie pistolety OFF |
 
-### Przejścia między trybami:
+### Przejścia między trybami (v7.0.0 - jeden przycisk):
 ```
-IDLE ──[START]──> WORKING ──[PAUSE]──> PAUSED ──[PAUSE]──> WORKING
-  │                  │                    │
-  │                  └──[STOP]────────────┘──> IDLE
+IDLE ──[START/PAUZA]──> WORKING ──[START/PAUZA]──> PAUSED ──[START/PAUZA]──> WORKING
+  │                        │                          │
+  │                        └──[STOP]──────────────────┘──> IDLE
   │
   ├──[MEASURE]──> MEASURING ──[STOP]──> IDLE
   ├──[SERVICE]──> SERVICE ──[STOP]──> IDLE
@@ -88,6 +93,8 @@ IDLE ──[START]──> WORKING ──[PAUSE]──> PAUSED ──[PAUSE]─�
 
 Dowolny tryb ──[E-STOP]──> EMERGENCY ──[RESET]──> IDLE
 ```
+
+> **UWAGA**: Przycisk START/PAUZA to jeden fizyczny przycisk, który przełącza tryby w zależności od aktualnego stanu.
 
 ---
 
@@ -113,13 +120,8 @@ Dowolny tryb ──[E-STOP]──> EMERGENCY ──[RESET]──> IDLE
 | 13 | P-7c | Kraw. przeryw. wąska | 1m | 1m | 12cm | P5 |
 | 14 | P-7d | Kraw. ciągła wąska | ciągła | - | 12cm | P5 |
 
-### Oznaczenia pistoletów:
-- **P1** (12cm) - oś jezdni
-- **P2** (12cm) - oś jezdni
-- **P3** (12cm) - oś jezdni
-- **P4** (24cm) - oś jezdni szeroki
-- **P5** (12cm K) - krawędziowy
-- **P6** (24cm K) - krawędziowy szeroki
+### Cyklowanie wzorców przerywanych (v7.0.0):
+Dla wzorców przerywanych (linia + przerwa) system automatycznie przełącza pistolety na podstawie przejechanego dystansu. Nie trzeba ręcznie włączać/wyłączać pistoletów.
 
 ---
 
@@ -128,47 +130,40 @@ Dowolny tryb ──[E-STOP]──> EMERGENCY ──[RESET]──> IDLE
 Panel dostępny pod adresem **http://192.168.4.1** po połączeniu z WiFi "Trassar-Painter".
 
 ### Zakładka 1: Panel Główny
-- Status systemu (tryb, wzorzec, selektor P3)
-- Pomiary: dystans, prędkość, impulsy enkodera
+- Status systemu (tryb, wzorzec, prędkość, selektor P3)
+- Wskaźnik prędkości (zielony/czerwony gdy < 3 km/h)
+- Info o cyklu wzorca (linia/przerwa)
 - Selektor P3 wirtualny (przycisk)
 - Opcja "Start od przerwy"
 - Wybór wzorca (15 przycisków)
-- Przyciski sterujące: START, STOP, PAUSE, MENU, SERWIS
+- Przyciski sterujące: **START/PAUZA**, STOP, MENU, SERWIS
 - Wizualizacja pistoletów na żywo
+- Info o karcie SD (pojemność, wolne miejsce)
 
 ### Zakładka 2: Pomiar
 - Tryb pomiaru dystansu (pistolety OFF)
-- START POMIARU / STOP
 
 ### Zakładka 3: Kalibracja
 - Procedura automatycznej kalibracji
-- START KALIBRACJI / STOP
-- Podgląd impulsów i aktualnej kalibracji
 
 ### Zakładka 4: Raporty
-- Status bieżącego raportu
 - Lista zapisanych raportów
 - Podgląd szczegółów raportu
 - Eksport CSV
+- **Usuwanie raportów** (pojedynczo lub wszystkie)
 
 ---
 
 ## 6. KALIBRACJA ENKODERA
 
-### Procedura kalibracji automatycznej:
+### Procedura:
 1. Wyznacz na podłożu odcinek dokładnie **10 metrów**
 2. Ustaw maszynę na początku odcinka
 3. Wciśnij **START KALIBRACJI** (panel WWW lub menu)
 4. Jedź powoli (~5 km/h) w linii prostej
 5. Zatrzymaj się dokładnie na końcu 10m
 6. Wciśnij **STOP**
-7. System automatycznie obliczy: `kalibracja = impulsy / 10`
-8. Wartość zapisana do pamięci NVS (przetrwa restart)
-
-### Wskazówki:
-- Kalibruj na tej samej powierzchni co praca (asfalt, beton)
-- Jedź ze stałą prędkością
-- Powtórz kalibrację po zmianie koła/opony
+7. Wartość zapisana do pamięci NVS (przetrwa restart)
 
 ---
 
@@ -180,146 +175,113 @@ Panel dostępny pod adresem **http://192.168.4.1** po połączeniu z WiFi "Trass
 3. **Automatyczny zapis** - raport zapisuje się po STOP
 4. **Obliczanie powierzchni** - `m2 = dystans × szerokość`
 
-### Eksport CSV:
-1. Przejdź do zakładki **Raporty**
-2. Kliknij raport z listy
-3. Kliknij przycisk **CSV**
-4. Plik zostanie pobrany
+### Zapis:
+- **Karta SD** (priorytet) - jeśli karta jest dostępna
+- **LittleFS** (fallback) - pamięć wewnętrzna ESP32
 
-### Format raportu:
-```
-Data: 2026-02-02
-Rozpoczęcie: 08:00:00
-Zakończenie: 12:30:00
-Czas pracy: 16200 s (270 min)
-
-POWIERZCHNIA WYMALOWANA [m2]:
-P-2a (Ciągła wąska): 120.50 m2 (dystans: 1004.17 m)
-P-1a (Przerywana długa): 45.00 m2 (dystans: 375.00 m)
-
-SUMA: 165.50 m2
-```
+### Usuwanie raportów (v7.0.0):
+- W panelu WWW: przycisk "Usuń" przy każdym raporcie
+- "Usuń wszystkie" - kasuje wszystkie raporty
 
 ---
 
-## 8. SYSTEM BEZPIECZEŃSTWA
+## 8. KARTA SD
+
+### Wymagania:
+- Karta microSD (FAT32)
+- Czytnik zintegrowany z modułem TFT ILI9341
+
+### Automatyczne działanie:
+- System wykrywa kartę SD przy starcie (self-test)
+- Raporty automatycznie zapisywane na kartę w katalogu `/raporty/`
+- Jeśli karta niedostępna - fallback na LittleFS
+- Info o pojemności w panelu WWW
+
+---
+
+## 9. SYSTEM BEZPIECZEŃSTWA
 
 ### E-STOP (Awaryjne zatrzymanie)
-- **Czerwony przycisk grzybkowy** na maszynie
+- **Czerwony przycisk grzybkowy** NC (Normally Closed)
 - Natychmiast wyłącza WSZYSTKIE pistolety
 - System przechodzi w tryb EMERGENCY
 - LED CZERWONY stały + 5 sygnałów dźwiękowych
-- **Aby zresetować**: zwolnij E-STOP → wciśnij START
+- **Aby zresetować**: zwolnij E-STOP → potwierdź w panelu WWW (wymaga hasła)
 
 ### Watchdog (5s)
-- Jeśli system się zawiesi, automatyczny restart po 5 sekundach
-- Chroni przed zablokowaniem pistoletu w stanie ON
+- Automatyczny restart po zawieszeniu systemu
 
 ### Heartbeat (1s)
-- Jeśli pętla główna przestanie odpowiadać, pistolety zostaną wyłączone
-- Dodatkowa warstwa ochrony
+- Pistolety OFF jeśli pętla główna nie odpowiada
 
 ### Deadman Switch (30s)
-- Operator musi potwierdzić swoją obecność co 30 sekund
-- Potwierdzenie = wciśnięcie START, PAUSE lub przycisku enkodera
+- Operator musi potwierdzić obecność co 30 sekund
+- Potwierdzenie = wciśnięcie START/PAUZA lub przycisku enkodera
 - Timeout = automatyczna PAUZA + alarm
-
-### Encoder Health
-- **Stall detection**: jeśli enkoder nie zlicza impulsów przez 5s podczas pracy
-- **Disconnect detection**: jeśli po 10s pracy nadal 0 impulsów
-- Żółte/czerwone ostrzeżenie + buzzer
-
-### Speed Validation
-- Limit 0-25 km/h
-- Nierealistyczna prędkość = automatyczna PAUZA + alarm
-
-### Self-test (przy starcie)
-- Test RTC, LittleFS, enkodera, przekaźników, E-STOP, GPIO
-- Wynik: PASSED (zielony) lub WARNINGS (żółty)
-
-### Error Log
-- 50 ostatnich błędów w pamięci
-- Zapis do pliku `/errors.log`
-- Dostępny przez API: `/api/safety/errors`
 
 ---
 
-## 9. TRYB SERWISOWY
+## 10. KONTROLA PRĘDKOŚCI (v7.0.0)
 
-Tryb serwisowy umożliwia testowanie pistoletów BEZ JAZDY.
+### Minimalna prędkość malowania: 3 km/h
 
-### Uruchomienie:
+Ze względów bezpieczeństwa malowanie jest możliwe tylko podczas jazdy maszyny z prędkością większą niż 3 km/h.
+
+- **Poniżej 3 km/h**: pistolety automatycznie wyłączone (nawet w trybie WORKING)
+- **Powyżej 3 km/h**: pistolety działają normalnie wg wzorca
+- Wskaźnik prędkości w panelu WWW zmienia kolor:
+  - **Zielony**: prędkość wystarczająca
+  - **Czerwony**: za wolno, pistolety OFF
+
+---
+
+## 11. TRYB SERWISOWY
+
+Test pistoletów BEZ JAZDY.
 1. Wciśnij **TRYB SERWISOWY** w panelu WWW
 2. **Przytrzymaj** przycisk wzorca - pistolety się włączą
 3. **Puść** przycisk - pistolety się wyłączą
 4. Wciśnij **WYJDŹ** aby wrócić do IDLE
 
-### Zastosowanie:
-- Sprawdzanie czy pistolety działają
-- Test dysz
-- Diagnostyka przekaźników
+---
+
+## 12. SELEKTOR P3
+
+Odwraca parę pistoletów P1 ↔ P3 dla wzorców podwójnych (P-3a, P-3b, P-4).
+
+Sterowanie:
+1. **Przełącznik fizyczny** (GPIO 20)
+2. **Przycisk w panelu WWW**
 
 ---
 
-## 10. SELEKTOR P3
+## 13. START OD PRZERWY
 
-Selektor P3 odwraca parę pistoletów P1 ↔ P3 dla wzorców podwójnych:
-- **P-3a** (Przekraczalna długa)
-- **P-3b** (Przekraczalna krótka)
-- **P-4** (Podwójna ciągła)
-
-### Dwa sposoby sterowania:
-1. **Przełącznik fizyczny** (GPIO 20) - LOW=normalne, HIGH=odwrócone
-2. **Przycisk w panelu WWW** - kliknij aby przełączyć
-
-Oba działają razem (OR logiczny). Jeśli którykolwiek jest ODWRÓCONY,
-para P1↔P3 jest zamieniona.
-
----
-
-## 11. START OD PRZERWY
-
-Funkcja "Start od przerwy" pozwala rozpocząć malowanie od przerwy wzorca.
-
-### Jak to działa:
 1. Zaznacz **"Start od przerwy"** w panelu WWW
-2. Wciśnij **START**
-3. Pistolety są OFF przez długość przerwy wzorca
+2. Wciśnij **START/PAUZA**
+3. Pistolety OFF przez długość przerwy wzorca
 4. Po przejechaniu przerwy - pistolety włączają się automatycznie
-5. Pasek postępu pokazuje ile do końca przerwy
-
-### Zastosowanie:
-- Synchronizacja z istniejącym oznakowaniem
-- Kontynuacja malowania po przerwie
 
 ---
 
-## 12. AKTUALIZACJA OTA
+## 14. AKTUALIZACJA OTA
 
-Aktualizacja firmware przez WiFi (bez kabla USB).
-
-### Procedura:
 1. Połącz komputer z WiFi "Trassar-Painter"
-2. W panelu WWW: MENU → Aktualizacja OTA
-3. W PlatformIO: `pio run -t upload --upload-port Trassar-Painter`
-4. Hasło OTA: **trassar2024**
+2. W PlatformIO: `pio run -t upload --upload-port Trassar-Painter`
+3. Hasło OTA: **trassar2024**
 
 ---
 
-## 13. ROZWIĄZYWANIE PROBLEMÓW
+## 15. ROZWIĄZYWANIE PROBLEMÓW
 
 | Problem | Przyczyna | Rozwiązanie |
 |---------|-----------|-------------|
-| LED CZERWONY po starcie | E-STOP wciśnięty | Zwolnij E-STOP, wciśnij START |
-| Brak dystansu | Enkoder niepodłączony | Sprawdź połączenia GPIO 8,9,10 |
-| Prędkość 0 | Brak impulsów | Kalibracja + sprawdź enkoder |
-| Zły dystans | Zła kalibracja | Wykonaj kalibrację (10m) |
+| LED CZERWONY po starcie | E-STOP wciśnięty | Zwolnij E-STOP, resetuj w panelu |
+| Brak malowania mimo WORKING | Prędkość < 3 km/h | Jedź szybciej |
+| Brak dystansu | Enkoder niepodłączony | Sprawdź GPIO 8,9,10 |
+| Brak karty SD | Karta nie wykryta | Sprawdź kartę FAT32 |
 | Brak panelu WWW | WiFi AP nie działa | Restart ESP32 |
-| Zły czas | NTP nie zsynchronizowany | Sprawdź WiFi STA + internet |
-| Buzzer ciągły | Wielokrotne błędy | Sprawdź `/api/safety/errors` |
 | Automatyczna pauza | Deadman timeout | Wciśnij przycisk co <30s |
-| Restart ESP32 | Watchdog timeout | Sprawdź error log |
-| Brak raportów | LittleFS pełny | Usuń stare raporty |
 
 ### Kody błędów:
 | Kod | Typ | Opis |
@@ -335,6 +297,9 @@ Aktualizacja firmware przez WiFi (bez kabla USB).
 | 9 | ERR_CALIBRATION_DRIFT | Kalibracja dryfuje |
 | 10 | ERR_HEARTBEAT_TIMEOUT | System nie odpowiada |
 | 11 | ERR_SELF_TEST_FAILED | Self-test nie przeszedł |
+| 12 | ERR_SPEED_TOO_LOW | Prędkość poniżej minimum |
+| 13 | ERR_DEADMAN_TIMEOUT | Brak potwierdzenia operatora |
+| 14 | ERR_SD_CARD_FAILED | Karta SD nie działa |
 
 ---
 
@@ -343,18 +308,18 @@ Aktualizacja firmware przez WiFi (bez kabla USB).
 | Parametr | Wartość |
 |----------|---------|
 | Mikrokontroler | ESP32-S3 (16MB Flash, 8MB PSRAM) |
+| Firmware | v7.0.0 SD-SPEED EDITION |
 | Wzorce | 15 (P-1a do P-7d) |
 | Pistolety | 6 kanałów (12cm + 24cm) |
 | Wyświetlacz | TFT ILI9341 2.8" (320×240) |
+| Karta SD | microSD FAT32 (współdzielony SPI) |
 | WiFi AP | Trassar-Painter / 12345678 |
 | Panel WWW | http://192.168.4.1 |
+| Min. prędkość | 3 km/h |
 | OTA | Trassar-Painter / trassar2024 |
-| Prędkość max | 25 km/h |
-| Kalibracja | automatyczna (10m) |
-| Raportowanie | automatyczne (m2) |
 | Zasilanie | 5V / 2A minimum |
 
 ---
 
-*Trassar-Painter v6.0.0 - Modular Production Edition*
+*Trassar-Painter v7.0.0 - SD-SPEED EDITION*
 *Autor: Trassar251 | Data: 2026-02-02*

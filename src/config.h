@@ -1,9 +1,10 @@
 /**
  * @file config.h
- * @brief Konfiguracja systemu Trassar-Painter v6.0.0
+ * @brief Konfiguracja systemu - Trassar-Painter v7.0.0
  *
- * Parametry systemowe, WiFi, timing, bezpieczeństwo.
- * Piny GPIO -> patrz pins.h (jedyne źródło prawdy)
+ * ZMIANY v7.0.0:
+ * - MIN_PAINTING_SPEED_KMH = 3.0 (malowanie tylko > 3 km/h)
+ * - SD_REPORTS_DIR, WEB_AUTH_USER/PASS
  *
  * @author Trassar251
  * @date 2026-02-02
@@ -13,100 +14,92 @@
 #define CONFIG_H
 
 // ============================================================================
-// WERSJA SYSTEMU
+// WERSJA FIRMWARE
 // ============================================================================
-#define FIRMWARE_VERSION    "6.0.0"
-#define FIRMWARE_NAME       "Trassar-Painter"
-#define FIRMWARE_SUBTITLE   "PRODUCTION MODULAR EDITION"
+#define FIRMWARE_VERSION    "7.0.0"
+#define FIRMWARE_CODENAME   "SD-SPEED EDITION"
 
 // ============================================================================
-// KONFIGURACJA WiFi
+// WIFI KONFIGURACJA
 // ============================================================================
-
-// WiFi STA (klient - do synchronizacji NTP)
-// WAŻNE: Wpisz dane swojej sieci WiFi
-#define WIFI_STA_SSID       "Miastek_WiFi"
-#define WIFI_STA_PASSWORD   "12345678"
-
-// WiFi AP (Access Point - panel WWW zawsze dostępny pod 192.168.4.1)
 #define WIFI_AP_SSID        "Trassar-Painter"
-#define WIFI_AP_PASSWORD    "12345678"
-
-// OTA (Over-The-Air Updates)
-#define OTA_HOSTNAME        "Trassar-Painter"
-#define OTA_PASSWORD        "trassar2024"
-
-// ============================================================================
-// PARAMETRY CZASOWE (ms)
-// ============================================================================
-#define BUTTON_DEBOUNCE_MS      200     // Debounce przycisków
-#define TFT_UPDATE_INTERVAL_MS  500     // Odświeżanie wyświetlacza TFT
-#define SPEED_CALC_INTERVAL_MS  1000    // Kalkulacja prędkości
-#define NTP_RETRY_DELAY_MS      500     // Opóźnienie między próbami NTP
-#define WIFI_CONNECT_TIMEOUT_MS 10000   // Timeout połączenia WiFi STA
-#define STATUS_REFRESH_MS       500     // Auto-refresh panelu WWW
+#define WIFI_AP_PASS        "Trassar2025!"
+#define WIFI_STA_SSID       "Miastek_WiFi"
+#define WIFI_STA_PASS       "12345678"
+#define WEB_SERVER_PORT     80
 
 // ============================================================================
-// PARAMETRY NTP
+// AUTENTYKACJA PANELU WWW (NOWE v7.0.0)
 // ============================================================================
-#define NTP_MAX_RETRIES         10      // Maksymalna liczba prób synchronizacji
-#define NTP_SERVER_PRIMARY      "pool.ntp.org"
-#define NTP_SERVER_SECONDARY    "time.nist.gov"
-#define NTP_UTC_OFFSET          3600    // UTC+1 (Polska zima)
-#define NTP_DST_OFFSET          3600    // +1h dla czasu letniego
-#define NTP_UPDATE_INTERVAL     60000   // Interwał aktualizacji NTP (60s)
+#define WEB_AUTH_USER       "admin"
+#define WEB_AUTH_PASS       "trassar251"
 
 // ============================================================================
-// PARAMETRY KALIBRACJI
+// PRĘDKOŚĆ MALOWANIA (NOWE v7.0.0)
 // ============================================================================
-#define CALIBRATION_DISTANCE_M  10.0f   // Dystans kalibracji (10 metrów)
-#define DEFAULT_CALIBRATION     100.0f  // Domyślna kalibracja (imp/m)
+// Malowanie możliwe TYLKO powyżej tej prędkości (bezpieczeństwo)
+#define MIN_PAINTING_SPEED_KMH  3.0f
+
+// ============================================================================
+// PARAMETRY ENKODERA I POMIARÓW
+// ============================================================================
+#define DEFAULT_CALIBRATION     100.0f
+#define CALIBRATION_DISTANCE_M  10.0f
+#define SPEED_CALC_INTERVAL_MS  1000
+#define SPEED_MIN_KMH           0.0f
+#define SPEED_MAX_KMH           25.0f
+
+// ============================================================================
+// NVS (Preferences) - klucze
+// ============================================================================
 #define NVS_NAMESPACE           "trassar"
-#define NVS_KEY_CALIBRATION     "encCalib"
+#define NVS_KEY_CALIBRATION     "enc_calib"
 
 // ============================================================================
-// PARAMETRY BEZPIECZEŃSTWA (SAFETY)
+// JOYSTICK
 // ============================================================================
-#define WATCHDOG_TIMEOUT_MS     5000    // 5s - timeout watchdog
-#define HEARTBEAT_INTERVAL_MS   1000    // 1s - wymagany heartbeat
-#define DEADMAN_TIMEOUT_MS      30000   // 30s - timeout potwierdzenia operatora
-#define ENCODER_STALL_TIMEOUT_MS 5000   // 5s - timeout zatrzymania enkodera
-#define ENCODER_DISCONNECT_MS   10000   // 10s - timeout odłączenia enkodera
-
-// Limity prędkości (km/h)
-#define SPEED_MIN_KMH           0.0f    // Minimalna prędkość
-#define SPEED_MAX_KMH           25.0f   // Maksymalna realistyczna prędkość
-
-// Kalibracja drift
-#define CALIBRATION_DRIFT_MAX_PERCENT 20.0f  // Maksymalny drift kalibracji
-
-// Error logging
-#define ERROR_LOG_SIZE          50      // Rozmiar circular buffer błędów
-#define ERROR_LOG_FILE          "/errors.log"
-
-// LittleFS
-#define MIN_FREE_SPACE_BYTES    1024    // Minimum wolnego miejsca (1KB)
-#define SELFTEST_MIN_FREE_KB    10      // Minimum 10KB dla self-test
+#define JOY_CENTER          2048
+#define JOY_DEADZONE        500
+#define JOY_MENU_DELAY_MS   300
 
 // ============================================================================
-// WYŚWIETLACZ TFT (ILI9341)
+// DEBOUNCE
 // ============================================================================
-#define TFT_SCREEN_WIDTH    320
-#define TFT_SCREEN_HEIGHT   240
+#define BUTTON_DEBOUNCE_MS  250
+#define BUZZER_CYCLE_MS     150
 
 // ============================================================================
-// WZORCE - LIMITY
+// SYSTEM BEZPIECZEŃSTWA
 // ============================================================================
-#define PATTERN_COUNT       15  // Liczba wzorców
-#define GUN_COUNT           6   // Liczba pistoletów
+#define WATCHDOG_TIMEOUT_MS         5000
+#define HEARTBEAT_INTERVAL_MS       1000
+#define DEADMAN_TIMEOUT_MS          30000
+#define ENCODER_STALL_TIMEOUT_MS    10000
+#define ENCODER_DISCONNECT_MS       5000
+#define CALIBRATION_DRIFT_MAX_PERCENT 15.0f
+#define SELFTEST_MIN_FREE_KB        100
+#define ERROR_LOG_SIZE              50
+#define ERROR_LOG_FILE              "/error_log.txt"
+#define MIN_FREE_SPACE_BYTES        4096
 
 // ============================================================================
-// JOYSTICK - PROGI
+// KARTA SD (NOWE v7.0.0)
 // ============================================================================
-#define JOY_CENTER          2048    // Wartość środkowa ADC
-#define JOY_THRESHOLD_LOW   1000    // Próg dolny (góra/lewo)
-#define JOY_THRESHOLD_HIGH  3000    // Próg górny (dół/prawo)
-#define JOY_MOVE_DELAY_MS   300     // Opóźnienie między ruchami
+#define SD_REPORTS_DIR      "/raporty"
+#define SD_LOGS_DIR         "/logi"
+
+// ============================================================================
+// TFT WYŚWIETLACZ
+// ============================================================================
+#define TFT_UPDATE_INTERVAL_MS  500
+#define TFT_SCREEN_WIDTH        320
+#define TFT_SCREEN_HEIGHT       240
+
+// ============================================================================
+// WZORCE MALOWANIA
+// ============================================================================
+#define PATTERN_COUNT       15
+#define GUN_COUNT           6
 
 // ============================================================================
 // MENU
@@ -114,14 +107,24 @@
 #define MENU_ITEMS_COUNT    7
 
 // ============================================================================
-// BUZZER
+// TIMERY GŁÓWNE
 // ============================================================================
-#define BUZZER_CYCLE_MS     200     // Cykl beep on/off (ms)
+#define SAFETY_CHECK_INTERVAL_MS    500
+#define SENSOR_READ_INTERVAL_MS     50
+#define STATUS_PRINT_INTERVAL_MS    2000
+#define SERIAL_BAUD                 115200
 
 // ============================================================================
-// SAFETY CHECK INTERVALS (ms)
+// NTP
 // ============================================================================
-#define SAFETY_CHECK_INTERVAL_MS    1000    // Co 1s - heartbeat, deadman, encoder
-#define CALIB_CHECK_INTERVAL_MS     60000   // Co 60s - drift kalibracji
+#define NTP_SERVER          "pool.ntp.org"
+#define NTP_GMT_OFFSET      3600
+#define NTP_DAYLIGHT_OFFSET 3600
+
+// ============================================================================
+// OTA
+// ============================================================================
+#define OTA_HOSTNAME        "trassar-painter"
+#define OTA_PASSWORD        "trassar251"
 
 #endif // CONFIG_H

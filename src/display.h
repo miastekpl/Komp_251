@@ -1,7 +1,6 @@
 /**
  * @file display.h
- * @brief Wyświetlacz TFT ILI9341 - Trassar-Painter v6.0.0
- *
+ * @brief Wyświetlacz TFT ILI9341 - Trassar-Painter v7.0.0
  * @author Trassar251
  * @date 2026-02-02
  */

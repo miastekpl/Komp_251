@@ -1,14 +1,9 @@
 /**
  * @file patterns.cpp
- * @brief Implementacja wzorców malowania - Trassar-Painter v6.0.0
+ * @brief Implementacja wzorców malowania - Trassar-Painter v7.0.0
  */
 
 #include "patterns.h"
-
-// ============================================================================
-// 15 WZORCÓW MALOWANIA (zgodnie z polską normą drogową)
-// ============================================================================
-// Pistolety: {P1(12cm), P2(12cm), P3(12cm), P4(24cm), P5(12cm K), P6(24cm K)}
 
 const PatternInfo patterns[PATTERN_COUNT] = {
     // idx 0: P-1a - Przerywana długa
@@ -69,4 +64,9 @@ const char* getModeNameJSON(SystemMode mode) {
         case MODE_EMERGENCY:    return "emergency";
         default:                return "unknown";
     }
+}
+
+bool isPatternDashed(int patternIndex) {
+    if (patternIndex < 0 || patternIndex >= PATTERN_COUNT) return false;
+    return (patterns[patternIndex].lineLength > 0 && patterns[patternIndex].gapLength > 0);
 }

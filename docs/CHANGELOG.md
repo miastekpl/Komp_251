@@ -4,6 +4,54 @@ Wszystkie istotne zmiany w projekcie.
 
 ---
 
+## [7.0.0] - 2026-02-02 - SD-SPEED EDITION
+
+### ZMIANY KRYTYCZNE (z audytu v6.0.0)
+- **[CRITICAL] GPIO 45 strapping pin** - RELAY_4 przeniesiony z GPIO 45 na GPIO 19 (zwolniony po usunięciu BTN_PAUSE)
+- **[CRITICAL] E-STOP NC** - ISR zmieniony z FALLING na CHANGE + digitalRead()==HIGH (poprawna logika dla przycisku NC)
+- **[CRITICAL] static const RELAY_PINS[]** - zmieniony na extern const + pins.cpp (tablica widoczna we wszystkich modułach)
+- **[CRITICAL] Jeden przycisk START/PAUZA** - BTN_START + BTN_PAUSE zastąpione jednym BTN_START_PAUSE (GPIO 40)
+
+### NOWE FUNKCJE
+- **Karta SD** - obsługa czytnika SD zintegrowanego z TFT (współdzielony SPI, CS=GPIO 2)
+  - Raporty zapisywane na kartę SD (fallback na LittleFS)
+  - Nowy moduł `sd_card.h/.cpp`
+- **Kontrola prędkości malowania** - pistolety OFF poniżej 3 km/h (MIN_PAINTING_SPEED_KMH)
+- **Cyklowanie wzorców przerywanych** - automatyczne przełączanie linia/przerwa na podstawie dystansu
+- **Basic Auth** - krytyczne endpointy (reset E-STOP) chronione hasłem
+- **CORS headers** - nagłówki na wszystkich endpointach API
+- **Usuwanie raportów** - endpointy DELETE /api/report?id=X i /api/reports/all
+- **Informacje o karcie SD** - w panelu WWW i API /api/sd
+
+### NOWE PLIKI
+| Plik | Opis |
+|------|------|
+| `src/pins.cpp` | Definicje extern const (RELAY_PINS[], RELAY_COUNT) |
+| `src/sd_card.h` | Nagłówek modułu karty SD |
+| `src/sd_card.cpp` | Inicjalizacja SD, info o pojemności |
+
+### NAPRAWIONE BUGI (z audytu v6.0.0)
+- **Buzzer** - poprawiona logika cykli (czysty licznik zamiast modulo z akumulacją błędów)
+- **NTPClient** - usunięta biblioteka, zastąpiona natywnym configTime() + getLocalTime()
+- **Deadman timeout** - nowy typ błędu ERR_DEADMAN_TIMEOUT
+- **SD card failed** - nowy typ błędu ERR_SD_CARD_FAILED
+- **Speed too low** - nowy typ błędu ERR_SPEED_TOO_LOW
+- **Self-test** - dodano sprawdzenie karty SD
+
+### ZMIANY GPIO
+| Zmiana | Stary | Nowy |
+|--------|-------|------|
+| RELAY_4 | GPIO 45 (strapping!) | GPIO 19 |
+| BTN_START | GPIO 40 | BTN_START_PAUSE GPIO 40 |
+| BTN_PAUSE | GPIO 19 | USUNIĘTY (jeden przycisk) |
+| SD_CS_PIN | - | GPIO 2 (NOWY) |
+
+### USUNIĘTE
+- Biblioteka NTPClient (zastąpiona natywnym ESP32 configTime)
+- Osobny przycisk BTN_PAUSE (zastąpiony jednym BTN_START_PAUSE)
+
+---
+
 ## [6.0.0] - 2026-02-02 - MODULAR PRODUCTION EDITION
 
 ### MAJOR REFACTORING
