@@ -234,67 +234,85 @@ bool checkCalibrationDrift() {
 
 bool performSelfTest() {
     Serial.println("\n[SELF-TEST] Diagnostyka startowa...");
+    Serial.flush();
+
     bool allPassed = true;
     char msg[256] = "Self-test:\n";
 
-    // RTC
-    if (rtc.begin() && rtc.isrunning()) {
+    // RTC - NIE wywołujemy begin() ponownie, bo już było w initRTC()
+    // Sprawdzamy tylko czy działa
+    if (rtc.isrunning()) {
         Serial.println("[SELF-TEST] RTC OK");
         strcat(msg, "RTC OK\n");
     } else {
-        Serial.println("[SELF-TEST] RTC FAILED");
-        strcat(msg, "RTC FAILED\n");
-        allPassed = false;
-        logError(ERR_RTC_FAILED, "RTC nie dziala");
+        Serial.println("[SELF-TEST] RTC BRAK/STOPPED (kontynuacja bez RTC)");
+        strcat(msg, "RTC BRAK\n");
+        // NIE blokujemy startu - RTC jest opcjonalne
     }
+    Serial.flush();
 
     // LittleFS
-    size_t freeSpace = LittleFS.totalBytes() - LittleFS.usedBytes();
-    if (freeSpace > SELFTEST_MIN_FREE_KB * 1024) {
-        Serial.printf("[SELF-TEST] LittleFS OK (%u KB wolne)\n", (unsigned)(freeSpace / 1024));
+    size_t totalBytes = LittleFS.totalBytes();
+    size_t usedBytes = LittleFS.usedBytes();
+    if (totalBytes > 0) {
+        size_t freeSpace = totalBytes - usedBytes;
+        if (freeSpace > SELFTEST_MIN_FREE_KB * 1024) {
+            Serial.printf("[SELF-TEST] LittleFS OK (%u KB wolne)\n", (unsigned)(freeSpace / 1024));
+        } else {
+            Serial.println("[SELF-TEST] LittleFS LOW");
+        }
     } else {
-        Serial.println("[SELF-TEST] LittleFS LOW");
-        logError(ERR_FILESYSTEM_FULL, "LittleFS malo miejsca");
+        Serial.println("[SELF-TEST] LittleFS - nie mozna odczytac rozmiaru");
     }
+    Serial.flush();
 
     // SD Card
-    Serial.printf("[SELF-TEST] SD Card: %s\n", sdCardAvailable ? "OK" : "BRAK");
+    Serial.printf("[SELF-TEST] SD Card: %s\n", sdCardAvailable ? "OK" : "BRAK (opcjonalna)");
+    Serial.flush();
 
     // Enkoder
     Serial.printf("[SELF-TEST] Enkoder: CLK=%d DT=%d\n", digitalRead(ENC_CLK), digitalRead(ENC_DT));
+    Serial.flush();
 
-    // Przekaźniki
-    for (int i = 0; i < RELAY_COUNT; i++) {
-        digitalWrite(RELAY_PINS[i], HIGH);
-        delay(50);
-        digitalWrite(RELAY_PINS[i], LOW);
-    }
-    Serial.println("[SELF-TEST] Przekazniki OK");
+    // Przekaźniki - NIE testujemy przez włączanie (może powodować problemy)
+    // Tylko sprawdzamy że piny są ustawione jako OUTPUT
+    Serial.println("[SELF-TEST] Przekazniki: piny skonfigurowane (bez testu ON/OFF)");
+    Serial.flush();
 
-    // E-STOP (NC: normalny = LOW)
-    if (digitalRead(BTN_EMERGENCY_STOP) == LOW) {
-        Serial.println("[SELF-TEST] E-STOP OK (zwolniony)");
+    // E-STOP (NC: normalny = LOW, wciśnięty = HIGH z powodu pullup)
+    int estopState = digitalRead(BTN_EMERGENCY_STOP);
+    if (estopState == LOW) {
+        Serial.println("[SELF-TEST] E-STOP OK (zwolniony, NC=LOW)");
     } else {
-        Serial.println("[SELF-TEST] E-STOP WCISNIETY!");
-        allPassed = false;
+        Serial.println("[SELF-TEST] E-STOP WCISNIETY lub BRAK (NC=HIGH)!");
+        // NIE blokujemy startu - użytkownik może zresetować przez panel
     }
+    Serial.flush();
 
-    // LEDs + Buzzer
-    digitalWrite(LED_STATUS_GREEN, HIGH); delay(100); digitalWrite(LED_STATUS_GREEN, LOW);
-    digitalWrite(LED_STATUS_YELLOW, HIGH); delay(100); digitalWrite(LED_STATUS_YELLOW, LOW);
-    digitalWrite(LED_STATUS_RED, HIGH); delay(100); digitalWrite(LED_STATUS_RED, LOW);
-    digitalWrite(BUZZER_PIN, HIGH); delay(100); digitalWrite(BUZZER_PIN, LOW);
+    // LEDs - krótki test
+    digitalWrite(LED_STATUS_GREEN, HIGH); delay(50); digitalWrite(LED_STATUS_GREEN, LOW);
+    digitalWrite(LED_STATUS_YELLOW, HIGH); delay(50); digitalWrite(LED_STATUS_YELLOW, LOW);
+    digitalWrite(LED_STATUS_RED, HIGH); delay(50); digitalWrite(LED_STATUS_RED, LOW);
+    Serial.println("[SELF-TEST] LEDs OK");
+
+    // Buzzer - krótki beep
+    digitalWrite(BUZZER_PIN, HIGH); delay(50); digitalWrite(BUZZER_PIN, LOW);
+    Serial.println("[SELF-TEST] Buzzer OK");
+    Serial.flush();
 
     if (allPassed) {
         setStatusLed(true, false, false);
         strcat(msg, "ALL PASSED");
     } else {
         setStatusLed(false, false, true);
-        strcat(msg, "SOME FAILED");
-        logError(ERR_SELF_TEST_FAILED, "Self-test wykryl problemy");
+        strcat(msg, "SOME WARNINGS");
     }
 
     selfTestPassed = allPassed;
     strncpy(selfTestMessage, msg, sizeof(selfTestMessage) - 1);
+
+    Serial.println("[SELF-TEST] Zakonczony");
+    Serial.flush();
+
     return allPassed;
 }

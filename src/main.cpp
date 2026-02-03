@@ -300,38 +300,63 @@ void updateJoystick() {
 // ============================================================================
 
 void setup() {
+    // WAŻNE: Opóźnienie na starcie - stabilizacja zasilania i bootloadera
+    delay(2000);
+
     Serial.begin(SERIAL_BAUD);
-    delay(1000);
+
+    // Czekaj na Serial (max 3s) - ważne dla USB CDC
+    unsigned long serialWait = millis();
+    while (!Serial && (millis() - serialWait < 3000)) {
+        delay(10);
+    }
+    delay(500);
 
     Serial.println("\n================================================");
     Serial.printf("  TRASSAR PAINTER v%s\n", FIRMWARE_VERSION);
     Serial.printf("  %s\n", FIRMWARE_CODENAME);
     Serial.println("  Jeden przycisk START/PAUZA");
     Serial.printf("  Min. predkosc malowania: %.1f km/h\n", MIN_PAINTING_SPEED_KMH);
-    Serial.println("  SD Card + E-STOP NC + Cyklowanie wzorc.");
     Serial.println("================================================\n");
+    Serial.flush();
+
+    // GPIO - NAJPIERW ustaw wszystkie przekaźniki na LOW (bezpieczeństwo)
+    Serial.println("[INIT] Inicjalizacja przekaznikow...");
+    for (int i = 0; i < RELAY_COUNT; i++) {
+        pinMode(RELAY_PINS[i], OUTPUT);
+        digitalWrite(RELAY_PINS[i], LOW);
+    }
+    Serial.println("[INIT] Przekazniki OK");
+    Serial.flush();
 
     // LittleFS (zawsze - error log)
+    Serial.println("[INIT] LittleFS...");
     if (!LittleFS.begin(true)) {
-        Serial.println("[FS] Blad LittleFS");
-    } else {
-        Serial.println("[FS] LittleFS OK");
-        reportCount = 0;
-        while (LittleFS.exists("/report_" + String(reportCount) + ".txt")) {
-            reportCount++;
-        }
-        Serial.printf("[FS] Znaleziono %d raportow (LittleFS)\n", reportCount);
+        Serial.println("[FS] Blad LittleFS - formatowanie...");
+        LittleFS.format();
+        LittleFS.begin(true);
     }
+    Serial.println("[FS] LittleFS OK");
+    reportCount = 0;
+    while (LittleFS.exists("/report_" + String(reportCount) + ".txt")) {
+        reportCount++;
+    }
+    Serial.printf("[FS] Znaleziono %d raportow (LittleFS)\n", reportCount);
+    Serial.flush();
 
-    // TFT
+    // TFT (wyłączony tymczasowo, ale SPI może być potrzebny)
+    Serial.println("[INIT] TFT...");
     tftInit();
+    Serial.flush();
 
-    // SD Card (v7.0.0 - po TFT init bo współdzielą SPI)
+    // SD Card - OPCJONALNA, nie crashuje przy braku karty
+    Serial.println("[INIT] Karta SD (opcjonalna)...");
     initSDCard();
     if (sdCardAvailable) {
         // Przelicz raporty na SD
         int sdReportCount = 0;
-        while (SD.exists(String(SD_REPORTS_DIR) + "/report_" + String(sdReportCount) + ".txt")) {
+        String reportPath = String(SD_REPORTS_DIR) + "/report_";
+        while (SD.exists(reportPath + String(sdReportCount) + ".txt")) {
             sdReportCount++;
         }
         if (sdReportCount > 0) {
@@ -339,22 +364,23 @@ void setup() {
             Serial.printf("[SD] Znaleziono %d raportow na SD\n", reportCount);
         }
     }
+    Serial.flush();
 
     // Preferences
+    Serial.println("[INIT] NVS/Preferences...");
     prefs.begin(NVS_NAMESPACE, false);
     encoderCalibration = prefs.getFloat(NVS_KEY_CALIBRATION, DEFAULT_CALIBRATION);
     Serial.printf("[CALIB] Enkoder: %.1f imp/m\n", encoderCalibration);
+    Serial.flush();
 
-    // GPIO - Przekaźniki
-    for (int i = 0; i < RELAY_COUNT; i++) {
-        pinMode(RELAY_PINS[i], OUTPUT);
-        digitalWrite(RELAY_PINS[i], LOW);
-    }
+    // GPIO - Przekaźniki już zainicjalizowane na początku setup()
 
     // GPIO - Przyciski (v7.0.0: jeden START/PAUZA, brak osobnego PAUSE)
+    Serial.println("[INIT] GPIO przyciski...");
     pinMode(BTN_START_PAUSE, INPUT_PULLUP);
     pinMode(BTN_STOP, INPUT_PULLUP);
     Serial.println("[GPIO] Przyciski: START/PAUZA(40), STOP(41)");
+    Serial.flush();
 
     // GPIO - Selektor, Joystick, Enkoder
     pinMode(SEL_P3, INPUT_PULLUP);
@@ -371,9 +397,12 @@ void setup() {
     pinMode(LED_STATUS_YELLOW, OUTPUT);
 
     // RTC
+    Serial.println("[INIT] RTC...");
     initRTC();
+    Serial.flush();
 
     // Przerwania - Enkoder
+    Serial.println("[INIT] Przerwania...");
     attachInterrupt(digitalPinToInterrupt(ENC_CLK), encoderISR, RISING);
     attachInterrupt(digitalPinToInterrupt(ENC_SW), encoderButtonISR, FALLING);
 
@@ -384,12 +413,15 @@ void setup() {
     // v7.0.0: E-STOP na CHANGE (NC: LOW=normal, HIGH=pressed)
     attachInterrupt(digitalPinToInterrupt(BTN_EMERGENCY_STOP), emergencyStopISR, CHANGE);
     Serial.println("[INT] Przerwania OK");
+    Serial.flush();
 
     // Kalibracja drift
     initialCalibration = encoderCalibration;
 
     // Self-test
+    Serial.println("[INIT] Self-test...");
     performSelfTest();
+    Serial.flush();
 
     // Timery safety
     lastWatchdogReset = millis();
