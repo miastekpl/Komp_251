@@ -1,0 +1,60 @@
+/**
+ * @file main_minimal_test.cpp
+ * @brief MINIMALNY TEST ESP32-S3 - zamień nazwę na main.cpp do testów
+ *
+ * Jeśli ten kod NIE działa -> problem sprzętowy lub z bootloaderem
+ * Jeśli ten kod działa -> problem w głównym kodzie Trassar-Painter
+ *
+ * INSTRUKCJA:
+ * 1. Zmień nazwę src/main.cpp na src/main.cpp.bak
+ * 2. Zmień nazwę tego pliku na src/main.cpp
+ * 3. Wgraj: pio run -t upload
+ * 4. Obserwuj Serial Monitor (115200 baud)
+ */
+
+#include <Arduino.h>
+
+void setup() {
+    // Długi delay na stabilizację
+    delay(5000);
+
+    // Serial z długim timeoutem
+    Serial.begin(115200);
+
+    unsigned long start = millis();
+    while (!Serial && millis() - start < 10000) {
+        delay(100);
+    }
+
+    delay(2000);
+
+    // Jeśli widzisz te linie - ESP32 działa!
+    Serial.println("\n\n\n");
+    Serial.println("========================================");
+    Serial.println("  ESP32-S3 MINIMAL TEST");
+    Serial.println("  Jesli widzisz ten tekst - ESP dziala!");
+    Serial.println("========================================\n");
+
+    // Wbudowany LED (jeśli jest)
+    pinMode(LED_BUILTIN, OUTPUT);
+
+    Serial.println("[OK] Setup zakonczone");
+}
+
+void loop() {
+    static unsigned long lastPrint = 0;
+    static int counter = 0;
+
+    // Mrugaj LED
+    digitalWrite(LED_BUILTIN, (millis() / 500) % 2);
+
+    // Co sekundę wypisz licznik
+    if (millis() - lastPrint > 1000) {
+        lastPrint = millis();
+        counter++;
+        Serial.printf("[%d] ESP32-S3 dziala... uptime: %lu ms\n",
+                      counter, millis());
+    }
+
+    delay(10);
+}
