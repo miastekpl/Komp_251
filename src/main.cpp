@@ -47,13 +47,13 @@
 #include "sd_card.h"
 
 // ============================================================================
-// OBIEKTY GLOBALNE
+// OBIEKTY GLOBALNE - POINTERY (lazy initialization zapobiega crash w konstruktorach)
 // ============================================================================
 
-TFT_eSPI tft = TFT_eSPI();
-WebServer server(80);
-Preferences prefs;
-RTC_DS1307 rtc;
+TFT_eSPI* pTft = nullptr;
+WebServer* pServer = nullptr;
+Preferences prefs;       // Preferences jest bezpieczny jako globalny
+RTC_DS1307 rtc;          // RTC jest bezpieczny jako globalny
 
 // ============================================================================
 // ISR PRZYCISKÓW
@@ -301,23 +301,34 @@ void updateJoystick() {
 
 void setup() {
     // WAŻNE: Opóźnienie na starcie - stabilizacja zasilania i bootloadera
-    delay(2000);
+    delay(3000);  // Zwiększone do 3s dla pewności
 
     Serial.begin(SERIAL_BAUD);
 
-    // Czekaj na Serial (max 3s) - ważne dla USB CDC
+    // Czekaj na Serial (max 5s) - ważne dla USB CDC
     unsigned long serialWait = millis();
-    while (!Serial && (millis() - serialWait < 3000)) {
+    while (!Serial && (millis() - serialWait < 5000)) {
         delay(10);
     }
-    delay(500);
+    delay(1000);
 
-    Serial.println("\n================================================");
+    Serial.println("\n\n\n");  // Czyste linie na początek
+    Serial.println("================================================");
     Serial.printf("  TRASSAR PAINTER v%s\n", FIRMWARE_VERSION);
     Serial.printf("  %s\n", FIRMWARE_CODENAME);
     Serial.println("  Jeden przycisk START/PAUZA");
     Serial.printf("  Min. predkosc malowania: %.1f km/h\n", MIN_PAINTING_SPEED_KMH);
     Serial.println("================================================\n");
+    Serial.flush();
+
+    // LAZY INITIALIZATION - tworzenie obiektów PO uruchomieniu Serial
+    Serial.println("[INIT] Tworzenie obiektow...");
+    pServer = new WebServer(80);
+    Serial.println("[INIT] WebServer OK");
+    Serial.flush();
+
+    pTft = new TFT_eSPI();
+    Serial.println("[INIT] TFT_eSPI OK");
     Serial.flush();
 
     // GPIO - NAJPIERW ustaw wszystkie przekaźniki na LOW (bezpieczeństwo)
@@ -501,7 +512,7 @@ void loop() {
     if (emergencyStopActive) {
         buzzerUpdate();
         updateStatusLeds();
-        server.handleClient();
+        pServer->handleClient();
         delay(50);
         return;
     }
@@ -515,7 +526,7 @@ void loop() {
     // ═══════════════════════════════════════════════════════════════
 
     ArduinoOTA.handle();
-    server.handleClient();
+    pServer->handleClient();
 
     // ═══════════════════════════════════════════════════════════════
     // 3. OBSŁUGA FLAG ISR

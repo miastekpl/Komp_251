@@ -15,7 +15,8 @@
 #include "state.h"
 #include "patterns.h"
 
-extern TFT_eSPI tft;
+extern TFT_eSPI* pTft;
+#define tft (*pTft)
 
 void tftInit() {
     // Odkomentuj gdy podłączysz wyświetlacz TFT:

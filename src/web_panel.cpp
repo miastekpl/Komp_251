@@ -28,7 +28,8 @@
 #include "encoder.h"
 #include "sd_card.h"
 
-extern WebServer server;
+extern WebServer* pServer;
+#define server (*pServer)
 extern void startSystem();
 extern void stopSystem();
 extern void pauseSystem();
