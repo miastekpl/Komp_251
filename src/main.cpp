@@ -28,6 +28,7 @@
 #include <RTClib.h>
 #include <ArduinoOTA.h>
 #include <LittleFS.h>
+#include <SD.h>
 #include <Wire.h>
 
 // Moduły Trassar-Painter
